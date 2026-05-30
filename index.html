@@ -44,11 +44,10 @@ main{max-width:560px;margin:0 auto;padding:10px 14px 80px}
 .card-top .habit-name:hover{text-decoration:underline}
 .card-top .cal-toggle{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--c5);flex-shrink:0;transition:transform .15s;padding:0;line-height:1}
 .card-top .cal-toggle:hover{color:var(--c0)}
-.card-top .drag-handle{cursor:grab;color:var(--c6);font-size:.75rem;padding:2px;user-select:none;-webkit-user-select:none;letter-spacing:-.1em;display:none}
-@media(hover:hover)and(pointer:fine){.card-top .drag-handle{display:inline}}
+.card-top .drag-handle{cursor:grab;color:var(--c5);font-size:.85rem;padding:6px;user-select:none;-webkit-user-select:none;letter-spacing:-.1em;touch-action:none}
 .card-top .drag-handle:active{cursor:grabbing}
-.habit-card.drag-over{border-color:var(--c0);background:var(--c9)}
-.habit-card.dragging{opacity:.4}
+.habit-card.dragging{opacity:.5;transform:translateY(0);z-index:10;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.habit-card.drag-swap{border-color:var(--c0)}
 
 /* Mini calendar inside card */
 .card-cal .mc{width:100%}
@@ -229,7 +228,7 @@ function cardHTML(h,today,thisY,thisM){
       <button class="toggle${isDone?' done':''}" data-action="toggle">${isDone?'✓':''}</button>
       <span class="habit-name" data-action="detail">${h.name}</span>
       <button class="cal-toggle" data-action="cal-toggle">${calOpen?'⌄':'›'}</button>
-      <span class="drag-handle" draggable="true" data-action="drag">⋮</span>
+      <span class="drag-handle" data-action="drag">⋮</span>
     </div>
     ${calOpen?'<div class="card-cal">'+calHTML(thisY,thisM,h.completions,today)+'</div>':''}
   </div>`;
@@ -283,31 +282,46 @@ function bindCardEvents(){
       save();renderMain();
     });
   });
-  // Drag & drop
+  // Pointer-based drag (works on desktop & mobile)
+  let drag=null;
   document.querySelectorAll('[data-action="drag"]').forEach(handle=>{
-    handle.addEventListener('dragstart',e=>{
+    handle.addEventListener('pointerdown',e=>{
+      e.preventDefault();e.stopPropagation();
       const card=handle.closest('.habit-card');
+      const allCards=[...document.querySelectorAll('.habit-card')];
+      const origRects=allCards.map(c=>({el:c,top:c.getBoundingClientRect().top,mid:c.getBoundingClientRect().top+c.getBoundingClientRect().height/2}));
       card.classList.add('dragging');
-      e.dataTransfer.setData('text/plain',card.dataset.hid);
-      e.dataTransfer.effectAllowed='move';
+      drag={hid:card.dataset.hid,card,startY:e.clientY,allCards,origRects,moved:false};
+      handle.setPointerCapture(e.pointerId);
     });
-    handle.addEventListener('dragend',e=>{
-      document.querySelectorAll('.habit-card').forEach(c=>c.classList.remove('dragging','drag-over'));
+    handle.addEventListener('pointermove',e=>{
+      if(!drag)return;
+      const dy=e.clientY-drag.startY;
+      if(Math.abs(dy)<4&&!drag.moved)return;
+      drag.moved=true;
+      drag.card.style.transform='translateY('+dy+'px)';
+      // Find closest card by midpoint
+      const cy=drag.card.getBoundingClientRect().top+drag.card.getBoundingClientRect().height/2;
+      let closest=null,closestDist=Infinity;
+      drag.origRects.forEach(r=>{if(r.el!==drag.card){const d=Math.abs(cy-r.mid);if(d<closestDist){closestDist=d;closest=r.el;}}});
+      drag.allCards.forEach(c=>c.classList.remove('drag-swap'));
+      if(closest&&closestDist<drag.card.getBoundingClientRect().height/2)closest.classList.add('drag-swap');
     });
-  });
-  document.querySelectorAll('.habit-card').forEach(card=>{
-    card.addEventListener('dragover',e=>{
-      e.preventDefault();
-      e.dataTransfer.dropEffect='move';
-      card.classList.add('drag-over');
+    handle.addEventListener('pointerup',e=>{
+      if(!drag){return;}
+      drag.card.classList.remove('dragging');
+      drag.card.style.transform='';
+      drag.allCards.forEach(c=>c.classList.remove('drag-swap'));
+      if(drag.moved){
+        const cy=drag.card.getBoundingClientRect().top+drag.card.getBoundingClientRect().height/2;
+        let target=null,targetDist=Infinity;
+        drag.origRects.forEach(r=>{if(r.el!==drag.card){const d=Math.abs(cy-r.mid);if(d<targetDist){targetDist=d;target=r.el;}}});
+        if(target)reorderHabits(drag.hid,target.dataset.hid);
+      }
+      drag=null;
     });
-    card.addEventListener('dragleave',()=>{card.classList.remove('drag-over');});
-    card.addEventListener('drop',e=>{
-      e.preventDefault();
-      card.classList.remove('drag-over');
-      const draggedId=e.dataTransfer.getData('text/plain');
-      const targetId=card.dataset.hid;
-      if(draggedId&&targetId&&draggedId!==targetId)reorderHabits(draggedId,targetId);
+    handle.addEventListener('pointercancel',()=>{
+      if(drag){drag.card.classList.remove('dragging');drag.card.style.transform='';drag.allCards.forEach(c=>c.classList.remove('drag-swap'));drag=null;}
     });
   });
 }
