@@ -44,6 +44,11 @@ main{max-width:560px;margin:0 auto;padding:10px 14px 80px}
 .card-top .habit-name:hover{text-decoration:underline}
 .card-top .cal-toggle{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--c5);flex-shrink:0;transition:transform .15s;padding:0;line-height:1}
 .card-top .cal-toggle:hover{color:var(--c0)}
+.card-top .drag-handle{cursor:grab;color:var(--c6);font-size:.75rem;padding:2px;user-select:none;-webkit-user-select:none;letter-spacing:-.1em;display:none}
+@media(hover:hover)and(pointer:fine){.card-top .drag-handle{display:inline}}
+.card-top .drag-handle:active{cursor:grabbing}
+.habit-card.drag-over{border-color:var(--c0);background:var(--c9)}
+.habit-card.dragging{opacity:.4}
 
 /* Mini calendar inside card */
 .card-cal .mc{width:100%}
@@ -157,7 +162,7 @@ main{max-width:560px;margin:0 auto;padding:10px 14px 80px}
 // ============ DATA ============
 const K='ht-v3';
 let d;
-function load(){try{const r=localStorage.getItem(K);d=r?{habits:JSON.parse(r).habits||[]}:{habits:[]};}catch(e){d={habits:[]};}}
+function load(){try{const r=localStorage.getItem(K);d=r?{habits:JSON.parse(r).habits||[]}:{habits:[]};}catch(e){d={habits:[]};}let mx=0;d.habits.forEach(h=>{if(h.order==null)h.order=mx++;else mx=Math.max(mx,h.order+1);});}
 function save(){localStorage.setItem(K,JSON.stringify(d));}
 load();
 function ts(){const dt=new Date();return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
@@ -187,7 +192,7 @@ function renderMain(){
   const sorted=[...d.habits].sort((a,b)=>{
     const aDone=!!a.completions[today];
     const bDone=!!b.completions[today];
-    if(aDone===bDone)return 0;
+    if(aDone===bDone)return(a.order||0)-(b.order||0);
     return aDone?1:-1;
   });
 
@@ -224,6 +229,7 @@ function cardHTML(h,today,thisY,thisM){
       <button class="toggle${isDone?' done':''}" data-action="toggle">${isDone?'✓':''}</button>
       <span class="habit-name" data-action="detail">${h.name}</span>
       <button class="cal-toggle" data-action="cal-toggle">${calOpen?'⌄':'›'}</button>
+      <span class="drag-handle" draggable="true" data-action="drag">⋮</span>
     </div>
     ${calOpen?'<div class="card-cal">'+calHTML(thisY,thisM,h.completions,today)+'</div>':''}
   </div>`;
@@ -277,6 +283,44 @@ function bindCardEvents(){
       save();renderMain();
     });
   });
+  // Drag & drop
+  document.querySelectorAll('[data-action="drag"]').forEach(handle=>{
+    handle.addEventListener('dragstart',e=>{
+      const card=handle.closest('.habit-card');
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain',card.dataset.hid);
+      e.dataTransfer.effectAllowed='move';
+    });
+    handle.addEventListener('dragend',e=>{
+      document.querySelectorAll('.habit-card').forEach(c=>c.classList.remove('dragging','drag-over'));
+    });
+  });
+  document.querySelectorAll('.habit-card').forEach(card=>{
+    card.addEventListener('dragover',e=>{
+      e.preventDefault();
+      e.dataTransfer.dropEffect='move';
+      card.classList.add('drag-over');
+    });
+    card.addEventListener('dragleave',()=>{card.classList.remove('drag-over');});
+    card.addEventListener('drop',e=>{
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      const draggedId=e.dataTransfer.getData('text/plain');
+      const targetId=card.dataset.hid;
+      if(draggedId&&targetId&&draggedId!==targetId)reorderHabits(draggedId,targetId);
+    });
+  });
+}
+
+function reorderHabits(draggedId,targetId){
+  const a=d.habits.find(h=>h.id===draggedId);
+  const b=d.habits.find(h=>h.id===targetId);
+  if(!a||!b)return;
+  const aOrder=a.order,bOrder=b.order;
+  if(aOrder<bOrder){d.habits.forEach(h=>{if(h.id!==a.id&&h.order>aOrder&&h.order<=bOrder)h.order--;});}
+  else{d.habits.forEach(h=>{if(h.id!==a.id&&h.order>=bOrder&&h.order<aOrder)h.order++;});}
+  a.order=bOrder;
+  save();renderMain();
 }
 
 // ============ DETAIL VIEW ============
@@ -419,7 +463,8 @@ modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.add('hidd
 document.getElementById('modal-confirm').addEventListener('click',()=>{
   const name=modalInput.value.trim();
   if(!name){toast('请输入习惯名称');return;}
-  d.habits.push({id:gid(),name,completions:{}});
+  const mxOrder=d.habits.reduce((mx,h)=>Math.max(mx,h.order||0),0);
+  d.habits.push({id:gid(),name,completions:{},order:mxOrder+1});
   save();modal.classList.add('hidden');renderMain();toast('已创建：'+name);
 });
 modalInput.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('modal-confirm').click();});
