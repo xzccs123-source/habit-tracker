@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>习惯</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--c0:#000;--c1:#1a1a1a;--c2:#333;--c4:#666;--c5:#999;--c6:#d5d5d5;
+  --c7:#e8e8e8;--c8:#f3f3f3;--c9:#fafafa;--cw:#fff;
+  --ff:-apple-system,BlinkMacSystemFont,'Helvetica Neue','PingFang SC','Microsoft YaHei',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ff);font-weight:300;color:var(--c1);background:var(--cw);min-height:100vh;letter-spacing:.01em;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;font-weight:300}
+input{font-family:inherit;outline:none}
+
+/* Header */
+.page-hd{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;position:sticky;top:0;background:var(--cw);z-index:10;border-bottom:1px solid transparent;transition:border-color .2s}
+.page-hd.scrolled{border-bottom-color:var(--c7)}
+.page-hd .hd-title{font-size:1.1rem;font-weight:500;letter-spacing:.02em}
+.page-hd .hd-add{width:32px;height:32px;border-radius:50%;border:1px solid var(--c6);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--c4);transition:all .15s;line-height:1}
+.page-hd .hd-add:hover{border-color:var(--c0);color:var(--c0)}
+main{max-width:540px;margin:0 auto;padding:8px 16px 80px}
+
+/* Habit card */
+.habit-card{border:1px solid var(--c7);margin-bottom:8px;transition:all .2s;background:var(--cw)}
+.habit-card.expanded{border-color:var(--c6)}
+.habit-card.done-today{opacity:.75}
+
+/* Card top row */
+.card-top{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none;-webkit-user-select:none;min-height:52px}
+.card-top .toggle{width:36px;height:36px;border-radius:50%;border:2px solid var(--c6);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;transition:all .15s;line-height:1;padding:0;background:var(--cw)}
+.card-top .toggle.done{background:var(--c0);border-color:var(--c0);color:var(--cw)}
+.card-top .habit-name{flex:1;font-size:.92rem;font-weight:400;letter-spacing:.02em}
+.card-top .arrow{font-size:.9rem;color:var(--c5);transition:transform .2s;flex-shrink:0;width:20px;text-align:center}
+.card-top .arrow.open{transform:rotate(90deg)}
+
+/* Mini calendar in card */
+.card-cal{padding:0 16px 14px}
+.card-cal .mc{width:100%}
+.card-cal .mc-title{font-size:.7rem;color:var(--c5);text-align:center;margin-bottom:6px;letter-spacing:.06em}
+.card-cal .mc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:0;justify-items:center;padding:0 4px}
+.card-cal .mc-grid span{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.65rem}
+@media(min-width:420px){.card-cal .mc-grid span{width:32px;height:32px;font-size:.68rem}}
+.card-cal .mc-hd{color:var(--c5);font-size:.58rem!important}
+.card-cal .mc-done{color:var(--c0);font-weight:400}
+.card-cal .mc-miss{color:var(--c6)}
+.card-cal .mc-fut{color:transparent}
+.card-cal .mc-today{border:1.5px solid var(--c0);border-radius:50%;font-weight:500}
+
+/* Detail section */
+.card-detail{display:none;border-top:1px solid var(--c7);padding:16px}
+.card-detail.open{display:block}
+
+.stat-row{display:flex;gap:20px;margin-bottom:18px;flex-wrap:wrap}
+.stat-item{min-width:70px}
+.stat-item .sv{font-size:1.3rem;font-weight:300;letter-spacing:-.02em}
+.stat-item .sl{font-size:.68rem;color:var(--c5);margin-top:2px;letter-spacing:.04em}
+
+.months-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+@media(min-width:480px){.months-grid{grid-template-columns:repeat(4,1fr);gap:12px}}
+.months-grid .mc{margin-bottom:0}
+.months-grid .mc-title{font-size:.62rem;margin-bottom:3px}
+.months-grid .mc-grid span{width:18px;height:18px;font-size:.52rem}
+.months-grid .mc-grid .mc-hd{font-size:.48rem!important}
+.months-grid .mc-today{border-width:1.2px}
+
+.chart-box{position:relative;height:180px;margin:12px 0}
+
+.detail-actions{display:flex;gap:10px;margin-top:14px}
+.detail-actions button{font-size:.72rem;color:var(--c5);padding:4px 10px;border:1px solid var(--c7);letter-spacing:.03em;transition:all .15s}
+.detail-actions button:hover{color:var(--c0);border-color:var(--c0)}
+.detail-actions .del-btn:hover{color:#b91c1c;border-color:#fecaca}
+
+/* Name edit */
+.name-edit{border:none;border-bottom:1.5px solid var(--c0);font-size:.92rem;font-weight:400;padding:2px 0;background:transparent;width:70%}
+
+/* Divider */
+.section-divider{display:flex;align-items:center;gap:10px;margin:20px 0 10px;color:var(--c5);font-size:.68rem;letter-spacing:.06em}
+.section-divider::before,.section-divider::after{content:'';flex:1;height:1px;background:var(--c7)}
+
+/* Empty */
+.empty{padding:40px 20px;text-align:center;color:var(--c5);font-size:.82rem;letter-spacing:.02em}
+
+/* Util bar */
+.util-bar{display:flex;gap:14px;justify-content:center;padding:24px 0 0;margin-top:24px;border-top:1px solid var(--c7)}
+.util-bar button{font-size:.7rem;color:var(--c5);letter-spacing:.05em;padding:4px 0;border-bottom:1px dotted var(--c6);transition:all .15s}
+.util-bar button:hover{color:var(--c0);border-bottom-color:var(--c0)}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--c0);color:var(--cw);padding:9px 22px;font-size:.78rem;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;letter-spacing:.02em}
+.toast.on{opacity:1}
+
+/* New habit modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal-overlay.hidden{display:none}
+.modal-box{background:var(--cw);padding:24px 20px 20px;width:calc(100% - 40px);max-width:360px}
+.modal-box .modal-title{font-size:.85rem;font-weight:500;margin-bottom:14px;letter-spacing:.02em}
+.modal-box input{padding:10px 12px;border:1px solid var(--c7);font-size:.88rem;font-weight:300;background:var(--c9);width:100%}
+.modal-box input:focus{border-color:var(--c0);background:var(--cw)}
+.modal-box .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.modal-box .modal-actions button{font-size:.78rem;padding:7px 16px;letter-spacing:.02em}
+.modal-box .modal-actions .btn-cancel{color:var(--c5);border:1px solid var(--c7)}
+.modal-box .modal-actions .btn-confirm{background:var(--c0);color:var(--cw);border:1px solid var(--c0)}
+</style>
+</head>
+<body>
+
+<div class="page-hd" id="page-header">
+  <span class="hd-title">习惯</span>
+  <button class="hd-add" id="btn-add-habit" title="新建习惯">+</button>
+</div>
+
+<main>
+  <div id="habits-top"></div>
+  <div id="divider-area"></div>
+  <div id="habits-bottom"></div>
+  <div class="empty" id="habits-empty" style="display:none">还没有习惯<br><span style="font-size:.74rem;color:var(--c5)">点右上角 + 创建第一个</span></div>
+  <div class="util-bar">
+    <button id="btn-export">导出数据</button>
+    <button id="btn-import">导入数据</button>
+    <input type="file" id="import-file" accept=".json" style="display:none">
+  </div>
+</main>
+
+<!-- New habit modal -->
+<div class="modal-overlay hidden" id="new-habit-modal">
+  <div class="modal-box">
+    <div class="modal-title">新建习惯</div>
+    <input type="text" id="new-habit-name" placeholder="习惯名称" maxlength="30" autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">取消</button>
+      <button class="btn-confirm" id="modal-confirm">创建</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ DATA ============
+const K='ht-v2';
+let d;
+function load(){try{const r=localStorage.getItem(K);d=r?{habits:JSON.parse(r).habits||[]}:{habits:[]};}catch(e){d={habits:[]};}}
+function save(){localStorage.setItem(K,JSON.stringify(d));}
+load();
+function ts(){const dt=new Date();return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function ds(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');}
+function dim(y,m){return new Date(y,m+1,0).getDate();}
+let expandedId=null;
+const DOW=['日','一','二','三','四','五','六'];
+
+// ============ TOAST ============
+let tt;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('on'),1600);}
+
+// ============ SCROLL HEADER ============
+window.addEventListener('scroll',()=>{
+  document.getElementById('page-header').classList.toggle('scrolled',window.scrollY>4);
+});
+
+// ============ MINI CALENDAR HTML ============
+function miniCal(y,m,completions,today,size){
+  const ddim=dim(y,m);
+  const fd=new Date(y,m,1).getDay();
+  const cls=size==='sm'?' mc-sm':'';
+  let h='<div class="mc'+cls+'"><div class="mc-title">'+(m+1)+'月</div><div class="mc-grid">';
+  DOW.forEach(d=>{h+='<span class="mc-hd">'+d+'</span>';});
+  for(let i=0;i<fd;i++) h+='<span></span>';
+  for(let day=1;day<=ddim;day++){
+    const dds=ds(y,m,day);
+    let c='';
+    if(dds>today) c='mc-fut';
+    else if(completions[dds]) c='mc-done';
+    else c='mc-miss';
+    if(dds===today) c+=' mc-today';
+    const txt=dds>today?'·':(completions[dds]?'●':'○');
+    h+='<span class="'+c+'">'+txt+'</span>';
+  }
+  h+='</div></div>';
+  return h;
+}
+
+// ============ RENDER ALL ============
+function renderAll(){
+  const today=ts();
+  const now=new Date();
+  const thisY=now.getFullYear();
+  const thisM=now.getMonth();
+
+  // Sort: undone today first, done today last
+  const sorted=[...d.habits].sort((a,b)=>{
+    const aDone=!!a.completions[today];
+    const bDone=!!b.completions[today];
+    if(aDone===bDone)return 0;
+    return aDone?1:-1;
+  });
+
+  const empty=document.getElementById('habits-empty');
+  const topEl=document.getElementById('habits-top');
+  const bottomEl=document.getElementById('habits-bottom');
+  const divider=document.getElementById('divider-area');
+
+  if(d.habits.length===0){
+    topEl.innerHTML='';bottomEl.innerHTML='';divider.innerHTML='';
+    empty.style.display='block';
+    return;
+  }
+  empty.style.display='none';
+
+  let firstDoneIdx=sorted.findIndex(h=>!!h.completions[today]);
+  if(firstDoneIdx===-1)firstDoneIdx=sorted.length;
+
+  const undone=sorted.slice(0,firstDoneIdx);
+  const done=sorted.slice(firstDoneIdx);
+
+  topEl.innerHTML=undone.map(h=>cardHTML(h,today,thisY,thisM)).join('');
+  bottomEl.innerHTML=done.map(h=>cardHTML(h,today,thisY,thisM)).join('');
+  divider.innerHTML=done.length>0&&undone.length>0?'<div class="section-divider">已完成</div>':'';
+
+  bindCardEvents();
+}
+
+function cardHTML(h,today,thisY,thisM){
+  const isDone=!!h.completions[today];
+  const isExp=expandedId===h.id;
+  return `<div class="habit-card${isExp?' expanded':''}${isDone?' done-today':''}" data-hid="${h.id}">
+    <div class="card-top" data-action="expand">
+      <button class="toggle${isDone?' done':''}" data-action="toggle" data-hid="${h.id}">${isDone?'✓':''}</button>
+      <span class="habit-name">${h.name}</span>
+      <span class="arrow${isExp?' open':''}">›</span>
+    </div>
+    <div class="card-cal">
+      ${miniCal(thisY,thisM,h.completions,today)}
+    </div>
+    <div class="card-detail${isExp?' open':''}" id="detail-${h.id}">
+      ${isExp?detailHTML(h,today):''}
+    </div>
+  </div>`;
+}
+
+function detailHTML(h,today){
+  const now=new Date();
+  const thisY=now.getFullYear();
+  const thisM=now.getMonth();
+
+  // Stats
+  const totalDone=Object.keys(h.completions).length;
+  const ddim=dim(thisY,thisM);
+  const daysPassed=Math.min(parseInt(today.slice(8)),ddim);
+  let monthDone=0;
+  for(let d=1;d<=daysPassed;d++){if(h.completions[ds(thisY,thisM,d)])monthDone++;}
+  const monthRate=daysPassed>0?Math.round(monthDone/daysPassed*100):0;
+  let last30=0;
+  for(let i=0;i<30;i++){const dt=new Date(today);dt.setDate(dt.getDate()-i);if(h.completions[dt.toISOString().slice(0,10)])last30++;}
+
+  // 12-month calendars
+  let monthsHTML='';
+  for(let i=11;i>=0;i--){
+    let m=thisM-i,y=thisY;
+    if(m<0){m+=12;y--;}
+    monthsHTML+=miniCal(y,m,h.completions,today,'sm');
+  }
+
+  return `
+    <div class="stat-row">
+      <div class="stat-item"><div class="sv">${totalDone}</div><div class="sl">总完成</div></div>
+      <div class="stat-item"><div class="sv">${monthRate}%</div><div class="sl">本月完成率</div></div>
+      <div class="stat-item"><div class="sv">${last30}</div><div class="sl">近30天</div></div>
+    </div>
+    <div class="months-grid">${monthsHTML}</div>
+    <div class="chart-box"><canvas id="ch-${h.id}"></canvas></div>
+    <div class="detail-actions">
+      <button data-action="rename" data-hid="${h.id}">重命名</button>
+      <button class="del-btn" data-action="delete" data-hid="${h.id}">删除</button>
+    </div>`;
+}
+
+function renderDetailChart(h){
+  const canvas=document.getElementById('ch-'+h.id);
+  if(!canvas)return;
+  const now=new Date();
+  const thisY=now.getFullYear();
+  const thisM=now.getMonth();
+  const labels=[],data=[];
+  for(let i=11;i>=0;i--){
+    let m=thisM-i,y=thisY;
+    if(m<0){m+=12;y--;}
+    labels.push((m+1)+'月');
+    let c=0;
+    const ddim=dim(y,m);
+    for(let d=1;d<=ddim;d++){if(h.completions[ds(y,m,d)])c++;}
+    data.push(c);
+  }
+  const ctx=canvas.getContext('2d');
+  const existing=Chart.getChart(canvas);
+  if(existing)existing.destroy();
+  new Chart(ctx,{type:'bar',data:{labels,datasets:[
+    {label:'完成天数',data,backgroundColor:'#000',borderRadius:0}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+    y:{grid:{color:'#f3f3f3'},ticks:{font:{size:8},stepSize:1},title:{display:true,text:'天',font:{size:8,weight:300}}},
+    x:{grid:{display:false},ticks:{font:{size:8}}}
+  }}});
+}
+
+// ============ EVENT BINDING ============
+function bindCardEvents(){
+  document.querySelectorAll('.card-top[data-action="expand"]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      // Don't expand if clicking toggle button
+      if(e.target.closest('[data-action="toggle"]'))return;
+      const card=el.closest('.habit-card');
+      const hid=card.dataset.hid;
+      if(expandedId===hid){
+        expandedId=null;
+      }else{
+        expandedId=hid;
+      }
+      renderAll();
+      if(expandedId){
+        const h=d.habits.find(x=>x.id===expandedId);
+        if(h)setTimeout(()=>renderDetailChart(h),50);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-action="toggle"]').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const hid=btn.dataset.hid;
+      const h=d.habits.find(x=>x.id===hid);
+      if(!h)return;
+      const today=ts();
+      if(h.completions[today]){delete h.completions[today];}else{h.completions[today]=true;}
+      save();
+      if(expandedId===hid){expandedId=null;}
+      renderAll();
+    });
+  });
+
+  document.querySelectorAll('[data-action="rename"]').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const hid=btn.dataset.hid;
+      const h=d.habits.find(x=>x.id===hid);
+      if(!h)return;
+      const card=document.querySelector(`.habit-card[data-hid="${hid}"]`);
+      const nameEl=card.querySelector('.habit-name');
+      const curName=nameEl.textContent;
+      nameEl.innerHTML='<input class="name-edit" value="'+curName.replace(/"/g,'&quot;')+'" id="rename-inp-'+hid+'">';
+      const inp=document.getElementById('rename-inp-'+hid);
+      inp.focus();inp.select();
+      const doRename=()=>{
+        const v=inp.value.trim();
+        if(v&&v!==curName){h.name=v;save();}
+        renderAll();
+      };
+      inp.addEventListener('blur',doRename);
+      inp.addEventListener('keydown',ev=>{if(ev.key==='Enter')inp.blur();});
+    });
+  });
+
+  document.querySelectorAll('[data-action="delete"]').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const hid=btn.dataset.hid;
+      const h=d.habits.find(x=>x.id===hid);
+      if(!confirm('删除「'+h.name+'」？所有记录将丢失。'))return;
+      d.habits=d.habits.filter(x=>x.id!==hid);
+      if(expandedId===hid)expandedId=null;
+      save();
+      renderAll();
+      toast('已删除');
+    });
+  });
+}
+
+// ============ NEW HABIT MODAL ============
+const modal=document.getElementById('new-habit-modal');
+const modalInput=document.getElementById('new-habit-name');
+document.getElementById('btn-add-habit').addEventListener('click',()=>{
+  modal.classList.remove('hidden');
+  modalInput.value='';
+  setTimeout(()=>modalInput.focus(),100);
+});
+document.getElementById('modal-cancel').addEventListener('click',()=>modal.classList.add('hidden'));
+modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.add('hidden');});
+document.getElementById('modal-confirm').addEventListener('click',()=>{
+  const name=modalInput.value.trim();
+  if(!name){toast('请输入习惯名称');return;}
+  d.habits.push({id:gid(),name,completions:{}});
+  save();
+  modal.classList.add('hidden');
+  renderAll();
+  toast('已创建：'+name);
+});
+modalInput.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('modal-confirm').click();});
+
+// ============ IMPORT / EXPORT ============
+document.getElementById('btn-export').addEventListener('click',()=>{
+  const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='habit-tracker-'+ts()+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('已导出');
+});
+document.getElementById('btn-import').addEventListener('click',()=>document.getElementById('import-file').click());
+document.getElementById('import-file').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const imported=JSON.parse(ev.target.result);
+      if(!imported.habits||!Array.isArray(imported.habits)){toast('格式不正确');return;}
+      const existIds=new Set(d.habits.map(h=>h.id));
+      imported.habits.forEach(ih=>{
+        if(existIds.has(ih.id)){
+          const cur=d.habits.find(h=>h.id===ih.id);
+          if(cur&&ih.completions)cur.completions={...cur.completions,...ih.completions};
+          if(cur&&ih.name)cur.name=ih.name;
+        }else{d.habits.push({...ih,completions:{...(ih.completions||{})}});existIds.add(ih.id);}
+      });
+      save();expandedId=null;renderAll();toast('已导入并合并');
+    }catch(err){toast('文件解析失败');}
+  };
+  reader.readAsText(file);e.target.value='';
+});
+
+// ============ INIT ============
+renderAll();
+</script>
+</body>
+</html>
